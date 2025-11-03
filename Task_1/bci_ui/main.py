@@ -4,7 +4,7 @@ from logic_controller import BCIInterface
 
 def main():
     root = tk.Tk()
-    root.title("Hybrid BCI Interface - Version 3 (Crowd Motion)")
+    root.title("Hybrid BCI Interface")
 
     canvas = tk.Canvas(root, width=WINDOW_WIDTH, height=WINDOW_HEIGHT,
                        bg=COLOR_BG, highlightthickness=0)

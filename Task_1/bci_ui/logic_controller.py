@@ -25,7 +25,8 @@ class BCIInterface:
         self.neuro_active_box = None
 
         self.canvas.bind("<Motion>", self.on_mouse_move)
-        self.canvas.bind("<space>", self.on_neuro_trigger)
+        self.root.bind_all("<space>", self.on_neuro_trigger)
+
 
         self.animate()
 
