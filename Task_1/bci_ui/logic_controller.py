@@ -27,7 +27,6 @@ class BCIInterface:
         self.canvas.bind("<Motion>", self.on_mouse_move)
         self.root.bind_all("<space>", self.on_neuro_trigger)
 
-
         self.animate()
 
     def on_mouse_move(self, event):
@@ -55,18 +54,19 @@ class BCIInterface:
                 min_dist, target = dist, box
         return target
 
-
     def animate(self):
         # Update dots and get coherence (0–1)
         coherence = self.dots.update(self.mouse_x, self.mouse_y)
 
         active_box = self.get_closest_box()
+        
+        # If no active box, reset coherence to calm down progress bars
+        if active_box is None:
+            coherence = 0
+            
         for box in self.boxes:
             neuro = (box == self.neuro_active_box)
             active = (box == active_box)
             box.update(coherence, active=active, neuro=neuro)
 
         self.root.after(UPDATE_INTERVAL, self.animate)
-        if active_box is None:
-            coherence = 0  # calm down progress bars too
-

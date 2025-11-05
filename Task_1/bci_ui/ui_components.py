@@ -9,12 +9,26 @@ class CrowdDots:
         self.dots = []
         self.velocities = []
         self.positions = []
+        self.home_positions = []  # Store initial positions for realignment
 
-        for _ in range(count):
-            angle = random.uniform(0, 2 * math.pi)
-            r = random.uniform(0, radius * 0.8)
-            x = cx + r * math.cos(angle)
-            y = cy + r * math.sin(angle)
+        # EEG electrode positions (normalized, will be scaled by radius)
+        # Based on 10-20 system layout from the image
+        electrode_positions = [
+            # Top row
+            (-0.17, -0.75), (0.17, -0.75),  # Fp1, Fp2
+            # Second row  
+            (-0.55, -0.45), (-0.28, -0.45), (0, -0.45), (0.28, -0.45), (0.55, -0.45),  # F7, F3, Fz, F4, F8
+            # Middle row
+            (-0.70, 0), (-0.35, 0), (0, 0), (0.35, 0), (0.70, 0),  # T3, C3, Cz, C4, T4
+            # Fourth row
+            (-0.55, 0.45), (-0.28, 0.45), (0, 0.45), (0.28, 0.45), (0.55, 0.45),  # T5, P3, Pz, P4, T6
+            # Bottom row
+            (-0.20, 0.70), (0.20, 0.70)  # O1, O2
+        ]
+
+        for norm_x, norm_y in electrode_positions:
+            x = cx + norm_x * radius * 0.75
+            y = cy + norm_y * radius * 0.75
             color = random.choice(DOT_COLORS)
             dot = canvas.create_oval(
                 x - DOT_RADIUS, y - DOT_RADIUS, x + DOT_RADIUS, y + DOT_RADIUS,
@@ -22,26 +36,25 @@ class CrowdDots:
             )
             self.dots.append(dot)
             self.positions.append([x, y])
-            self.velocities.append([random.uniform(-0.5, 0.5), random.uniform(-0.5, 0.5)])
+            self.home_positions.append([x, y])  # Save home position
+            self.velocities.append([0, 0])
 
     def update(self, target_x, target_y):
         """Update dots and compute coherence (0–1)."""
-# Compute direction toward target or relax to center
+        # Compute direction toward target or relax to center
         dx = target_x - self.cx
         dy = target_y - self.cy
         dist = math.hypot(dx, dy)
 
-        # If cursor is close to center (no box focus) → gentle pull to center
-        if dist < 120:  # within resting zone radius
-            direction = (
-                (self.cx - target_x) / (self.radius * 2),
-                (self.cy - target_y) / (self.radius * 2)
-            )
-        else:
+        # If cursor is close to center (no box focus) → return to home positions
+        returning_home = dist < 120  # within resting zone radius
+        
+        if not returning_home:
             dx /= dist
             dy /= dist
             direction = (dx, dy)
-
+        else:
+            direction = None
 
         avg_dir_x, avg_dir_y = 0, 0
         total_speed = 0
@@ -49,14 +62,29 @@ class CrowdDots:
         for i, dot in enumerate(self.dots):
             vx, vy = self.velocities[i]
             px, py = self.positions[i]
+            home_x, home_y = self.home_positions[i]
 
-            # Random jitter
-            vx += random.uniform(-0.08, 0.08)
-            vy += random.uniform(-0.08, 0.08)
+            if returning_home:
+                # Pull dots back to their home positions
+                dx_home = home_x - px
+                dy_home = home_y - py
+                home_dist = math.hypot(dx_home, dy_home)
+                
+                if home_dist > 1:  # If not at home yet
+                    vx += (dx_home / home_dist) * 0.3
+                    vy += (dy_home / home_dist) * 0.3
+                else:
+                    # At home, reduce velocity
+                    vx *= 0.8
+                    vy *= 0.8
+            else:
+                # Random jitter
+                vx += random.uniform(-0.08, 0.08)
+                vy += random.uniform(-0.08, 0.08)
 
-            # Directional drift (faster than before)
-            vx += direction[0] * 0.24
-            vy += direction[1] * 0.24
+                # Directional drift (faster than before)
+                vx += direction[0] * 0.24
+                vy += direction[1] * 0.24
 
             # Damping for smoothness
             vx *= 0.94
@@ -66,13 +94,14 @@ class CrowdDots:
             px += vx
             py += vy
 
-            # Soft boundary correction
-            dx_c, dy_c = px - self.cx, py - self.cy
-            dist_c = math.hypot(dx_c, dy_c)
-            if dist_c > self.radius * 0.9:
-                pull_strength = (dist_c - self.radius * 0.9) / (self.radius * 0.1)
-                vx -= (dx_c / dist_c) * pull_strength * 0.5
-                vy -= (dy_c / dist_c) * pull_strength * 0.5
+            # Soft boundary correction (only when not returning home)
+            if not returning_home:
+                dx_c, dy_c = px - self.cx, py - self.cy
+                dist_c = math.hypot(dx_c, dy_c)
+                if dist_c > self.radius * 0.9:
+                    pull_strength = (dist_c - self.radius * 0.9) / (self.radius * 0.1)
+                    vx -= (dx_c / dist_c) * pull_strength * 0.5
+                    vy -= (dy_c / dist_c) * pull_strength * 0.5
 
             # Save state
             self.positions[i] = [px, py]
@@ -121,7 +150,7 @@ class StimulusBox:
         self.bar_bg = canvas.create_rectangle(
             self.cx - self.width//2 - 15, self.cy - self.height//2,
             self.cx - self.width//2 - 5, self.cy + self.height//2,
-            fill=COLOR_PROGRESS_BG, outline=""
+            fill="", outline="white", width=1
         )
         self.bar_fill = canvas.create_rectangle(
             self.cx - self.width//2 - 15, self.cy + self.height//2,

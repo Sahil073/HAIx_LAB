@@ -5,7 +5,7 @@ WINDOW_WIDTH = 1200
 WINDOW_HEIGHT = 700
 CENTER_X = WINDOW_WIDTH // 2
 CENTER_Y = WINDOW_HEIGHT // 2
-CIRCLE_RADIUS = 120
+CIRCLE_RADIUS = 90
 DOT_COUNT = 120
 
 # Colors
@@ -18,7 +18,7 @@ COLOR_PROGRESS_BG = "#1A1A1A"
 COLOR_PROGRESS_FILL = "#00FFFF"  # cyan progress bar
 
 # Dot appearance
-DOT_RADIUS = 3.5  # slightly larger dots
+DOT_RADIUS = 2.0  # slightly larger dots
 DOT_COLORS = ["#FF0000", "#00FF00", "#0000FF", "#FFFF00"]  # red, green, blue, yellow
 
 # Progress animation
