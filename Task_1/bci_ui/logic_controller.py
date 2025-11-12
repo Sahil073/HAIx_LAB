@@ -1,12 +1,16 @@
 import time
+import math
 from config import * 
 from ui_components import *
+from tobii_input_handler import TobiiInputHandler
+
 class BCIInterface:
-    """Main BCI interface controller with improved hover logic."""
+    """Main BCI interface controller with Tobii eye tracking support."""
     
-    def __init__(self, root, canvas):
+    def __init__(self, root, canvas, status_label=None):
         self.root = root
         self.canvas = canvas
+        self.status_label = status_label
         
         self.width = WINDOW_WIDTH
         self.height = WINDOW_HEIGHT
@@ -33,14 +37,19 @@ class BCIInterface:
         # Create boxes
         self.boxes = [StimulusBox(canvas, i, *BOX_POSITIONS[i]) for i in BOX_POSITIONS]
         
+        # Initialize Tobii handler
+        self.tobii_handler = TobiiInputHandler()
+        self.current_input_mode = INPUT_MODE_MOUSE
+        
         # Input tracking
         self.mouse_x, self.mouse_y = self.center_x, self.center_y
+        self.gaze_x, self.gaze_y = self.center_x, self.center_y
         self.neuro_active_box = None
         
         # Hover state management
         self.active_box = None
         self.hover_start_time = None
-        self.hover_threshold = HOVER_THRESHOLD
+        self.hover_threshold = DEFAULT_HOVER_THRESHOLD
         self.is_hovering_long_enough = False
         self.lost_focus_time = None
         self.return_delay = RETURN_DELAY
@@ -54,6 +63,38 @@ class BCIInterface:
         
         # Start animation
         self.animate()
+    
+    def set_input_mode(self, mode):
+        """Switch between mouse and Tobii input modes."""
+        if mode == INPUT_MODE_TOBII:
+            if self.tobii_handler.is_available():
+                self.current_input_mode = INPUT_MODE_TOBII
+                self.tobii_handler.start_tracking(self.on_gaze_update)
+                print("Switched to Tobii eye tracking mode")
+            else:
+                print("ERROR: Tobii eye tracker not available. Staying in mouse mode.")
+                self.current_input_mode = INPUT_MODE_MOUSE
+        else:
+            self.current_input_mode = INPUT_MODE_MOUSE
+            self.tobii_handler.stop_tracking()
+            print("Switched to mouse mode")
+    
+    def set_hover_threshold(self, threshold):
+        """Update hover threshold time."""
+        self.hover_threshold = threshold
+    
+    def on_gaze_update(self, norm_x, norm_y):
+        """Callback for Tobii gaze data (normalized 0-1 coordinates)."""
+        # Convert normalized coordinates to canvas coordinates
+        self.gaze_x = int(norm_x * self.width)
+        self.gaze_y = int(norm_y * self.height)
+    
+    def get_current_position(self):
+        """Get current cursor position based on input mode."""
+        if self.current_input_mode == INPUT_MODE_TOBII:
+            return self.gaze_x, self.gaze_y
+        else:
+            return self.mouse_x, self.mouse_y
     
     def update_layout(self, new_width, new_height):
         """Handle window resize."""
@@ -105,8 +146,10 @@ class BCIInterface:
     
     def get_closest_box(self):
         """Get the closest box to cursor, or None if in neutral zone."""
-        dx_c = self.mouse_x - self.center_x
-        dy_c = self.mouse_y - self.center_y
+        cursor_x, cursor_y = self.get_current_position()
+        
+        dx_c = cursor_x - self.center_x
+        dy_c = cursor_y - self.center_y
         dist_center = math.hypot(dx_c, dy_c)
         
         # Neutral zone in center
@@ -117,8 +160,8 @@ class BCIInterface:
         target = None
         
         for box in self.boxes:
-            dx = self.mouse_x - box.cx
-            dy = self.mouse_y - box.cy
+            dx = cursor_x - box.cx
+            dy = cursor_y - box.cy
             d = math.hypot(dx, dy)
             if d < min_dist:
                 min_dist = d
@@ -127,11 +170,12 @@ class BCIInterface:
         return target
     
     def animate(self):
-        """Main animation loop with improved hover logic."""
+        """Main animation loop with Tobii support."""
         now = time.time()
         dt = now - self.last_time
         self.last_time = now
         
+        cursor_x, cursor_y = self.get_current_position()
         closest_box = self.get_closest_box()
         
         # Hover state machine
@@ -167,7 +211,7 @@ class BCIInterface:
         
         # Update dot targets
         if should_move_dots and self.active_box is not None:
-            self.dots.set_target(self.mouse_x, self.mouse_y, True)
+            self.dots.set_target(cursor_x, cursor_y, True)
         else:
             self.dots.set_target(self.center_x, self.center_y, False)
         
@@ -183,3 +227,8 @@ class BCIInterface:
         
         # Schedule next frame
         self.root.after(UPDATE_INTERVAL, self.animate)
+    
+    def cleanup(self):
+        """Clean up resources."""
+        self.tobii_handler.stop_tracking()
+        print("Cleaned up BCI interface")
