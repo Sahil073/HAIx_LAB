@@ -19,7 +19,7 @@ LIGHT_THEME = {
     'dot': '#E07A7A',
     'dot_glow': '#FFFFFF',
     'stimulus_normal': '#2D3142',
-    'stimulus_glow': '#FFD700',
+    'stimulus_glow': "#D21010",
     'control_bg': '#F5F7FA',
     'text_primary': '#2D3142',
     'text_secondary': '#6B7280',

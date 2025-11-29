@@ -16,7 +16,7 @@ class BCIApplication:
     """
     
     def __init__(self):
-        # Create main window
+        # Create main windowi
         self.root = tk.Tk()
         self.root.title("BCI Interface - Eye Tracking & Calibration System")
         self.root.geometry(f"{WINDOW_WIDTH}x{WINDOW_HEIGHT + CONTROL_PANEL_HEIGHT}")
